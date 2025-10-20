@@ -4468,12 +4468,30 @@ function buildColorFilterOverlay() {
       // Do NOT add totalWrong again to avoid double counting
       displayPainted = totalPainted;
       displayRequired = totalRequired;
-      overallProgress = displayRequired > 0 ? Math.round((displayPainted / displayRequired) * 100) : 0;
+      if (displayRequired > 0) {
+        if (displayPainted === displayRequired) {
+          overallProgress = 100;
+        } else {
+          const percentage = (displayPainted / displayRequired) * 100;
+          overallProgress = Math.min(Math.round(percentage * 100) / 100, 99.99);
+        }
+      } else {
+        overallProgress = 0;
+      }
     } else {
       // Standard calculation (exclude wrong colors)
       displayPainted = totalPainted;
       displayRequired = totalRequired;
-      overallProgress = displayRequired > 0 ? Math.round((displayPainted / displayRequired) * 100) : 0;
+      if (displayRequired > 0) {
+        if (displayPainted === displayRequired) {
+          overallProgress = 100;
+        } else {
+          const percentage = (displayPainted / displayRequired) * 100;
+          overallProgress = Math.min(Math.round(percentage * 100) / 100, 99.99);
+        }
+      } else {
+        overallProgress = 0;
+      }
     }
     
     // Inject compact modern styles for Color Filter UI (once)
@@ -8655,6 +8673,54 @@ function saveMiniTrackerEnabled(enabled) {
   }
 }
 
+/** Gets the top bar enabled setting from storage
+ * @returns {boolean} Whether top bar is enabled
+ * @since 1.0.0
+ */
+function getTopBarEnabled() {
+  try {
+    let topBarEnabled = null;
+    
+    if (typeof GM_getValue !== 'undefined') {
+      const saved = GM_getValue('bmTopBar', null);
+      if (saved !== null) topBarEnabled = JSON.parse(saved);
+    }
+    
+    if (topBarEnabled === null) {
+      const saved = localStorage.getItem('bmTopBar');
+      if (saved !== null) topBarEnabled = JSON.parse(saved);
+    }
+    
+    if (topBarEnabled !== null) {
+      return topBarEnabled;
+    }
+  } catch (error) {
+    console.warn('Failed to load top bar setting:', error);
+  }
+  
+  return false;
+}
+
+/** Saves the top bar enabled setting to storage
+ * @param {boolean} enabled - Whether top bar should be enabled
+ * @since 1.0.0
+ */
+function saveTopBarEnabled(enabled) {
+  try {
+    const enabledString = JSON.stringify(enabled);
+    
+    if (typeof GM_setValue !== 'undefined') {
+      GM_setValue('bmTopBar', enabledString);
+    }
+    
+    localStorage.setItem('bmTopBar', enabledString);
+    
+    debugLog('Top bar setting saved successfully:', enabled);
+  } catch (error) {
+    console.error('❌ Failed to save top bar setting:', error);
+  }
+}
+
 /** Gets the collapse mini template setting from storage
  * @returns {boolean} Whether collapse mini template should be enabled
  * @since 1.0.0
@@ -8979,7 +9045,17 @@ function updateMiniTracker() {
     }
   }
   
-  const progressPercentage = totalRequired > 0 ? Math.round((totalPainted / totalRequired) * 100) : 0;
+  let progressPercentage;
+  if (totalRequired > 0) {
+    if (totalPainted === totalRequired) {
+      progressPercentage = 100;
+    } else {
+      const percentage = (totalPainted / totalRequired) * 100;
+      progressPercentage = Math.min(Math.round(percentage * 100) / 100, 99.99);
+    }
+  } else {
+    progressPercentage = 0;
+  }
   const remaining = totalRequired - totalPainted;
   
   // Create or update tracker
@@ -9132,6 +9208,125 @@ function updateMiniTracker() {
   }
 }
 
+function createTopProgressBar() {
+  const existingBar = document.getElementById('bm-top-progress-bar');
+  
+  if (!getTopBarEnabled()) {
+    if (existingBar) {
+      existingBar.remove();
+    }
+    return;
+  }
+
+  if (!templateManager.templatesArray || templateManager.templatesArray.length === 0) {
+    if (existingBar) {
+      existingBar.remove();
+    }
+    return;
+  }
+
+  let totalRequired = 0;
+  let totalPainted = 0;
+  
+  const pixelStats = templateManager.calculateRemainingPixelsByColor(0, true);
+  const excludedColors = JSON.parse(localStorage.getItem('bmcf-excluded-colors') || '[]');
+  
+  for (const [colorKey, stats] of Object.entries(pixelStats)) {
+    if (excludedColors.includes(colorKey)) {
+      continue;
+    }
+    
+    totalRequired += stats.totalRequired || 0;
+    totalPainted += stats.painted || 0;
+  }
+  
+  let progressPercentage;
+  if (totalRequired > 0) {
+    if (totalPainted === totalRequired) {
+      progressPercentage = '100.00';
+    } else {
+      const percentage = (totalPainted / totalRequired) * 100;
+      progressPercentage = Math.min(percentage, 99.99).toFixed(2);
+    }
+  } else {
+    progressPercentage = '0.00';
+  }
+
+  if (existingBar) {
+    // Update responsive sizing
+    const isSmallScreen = window.innerWidth < 450;
+    const barPadding = isSmallScreen ? '6px 12px' : '8px 20px';
+    const barGap = isSmallScreen ? '8px' : '12px';
+    const barFontSize = isSmallScreen ? '0.75rem' : '0.9rem';
+    
+    existingBar.style.padding = barPadding;
+    existingBar.style.gap = barGap;
+    existingBar.style.fontSize = barFontSize;
+    
+    existingBar.innerHTML = `
+      <span style="color: #60a5fa;">${totalPainted.toLocaleString()}</span>
+      <span style="color: #94a3b8;">/</span>
+      <span style="color: #cbd5e1;">${totalRequired.toLocaleString()}</span>
+      <span style="color: #fbbf24;">• ${progressPercentage}%</span>
+    `;
+    return;
+  }
+
+  const topBar = document.createElement('div');
+  topBar.id = 'bm-top-progress-bar';
+  
+  // Responsive sizing
+  const isSmallScreen = window.innerWidth < 450;
+  const barPadding = isSmallScreen ? '6px 12px' : '8px 20px';
+  const barGap = isSmallScreen ? '8px' : '12px';
+  const barFontSize = isSmallScreen ? '0.75rem' : '0.9rem';
+  
+  topBar.style.cssText = `
+    position: fixed;
+    top: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #1e293b, #334155);
+    border: 1px solid #475569;
+    border-radius: 12px;
+    padding: ${barPadding};
+    color: #f1f5f9;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: ${barGap};
+    font-size: ${barFontSize};
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    user-select: none;
+    max-width: 95vw;
+    white-space: nowrap;
+    overflow: hidden;
+  `;
+
+  topBar.innerHTML = `
+    <span style="color: #60a5fa;">${totalPainted.toLocaleString()}</span>
+    <span style="color: #94a3b8;">/</span>
+    <span style="color: #cbd5e1;">${totalRequired.toLocaleString()}</span>
+    <span style="color: #fbbf24;">• ${progressPercentage}%</span>
+  `;
+
+  document.body.appendChild(topBar);
+}
+
+// Recreate top bar on window resize for responsive sizing
+let topBarResizeTimeout = null;
+window.addEventListener('resize', () => {
+  if (!getTopBarEnabled()) return;
+  
+  clearTimeout(topBarResizeTimeout);
+  topBarResizeTimeout = setTimeout(() => {
+    createTopProgressBar();
+  }, 250);
+});
+
 // Auto-update mini tracker every 5 seconds if enabled
 let miniTrackerAutoUpdateInterval = null;
 
@@ -9157,6 +9352,31 @@ function startMiniTrackerAutoUpdate() {
     }, 5000); // Update every 5 seconds
     
     debugLog('Mini tracker auto-update started (every 5 seconds)');
+  }
+}
+
+// Auto-update top bar every 5 seconds if enabled
+let topBarAutoUpdateInterval = null;
+
+function startTopBarAutoUpdate() {
+  if (topBarAutoUpdateInterval) {
+    clearInterval(topBarAutoUpdateInterval);
+  }
+  
+  if (getTopBarEnabled()) {
+    topBarAutoUpdateInterval = setInterval(() => {
+      const isStillEnabled = getTopBarEnabled();
+      if (isStillEnabled) {
+        createTopProgressBar();
+        debugLog('Top bar auto-updated');
+      } else {
+        clearInterval(topBarAutoUpdateInterval);
+        topBarAutoUpdateInterval = null;
+        debugLog('Top bar auto-update stopped (disabled)');
+      }
+    }, 5000);
+    
+    debugLog('Top bar auto-update started (every 5 seconds)');
   }
 }
 
@@ -9265,9 +9485,11 @@ function startCompactListAutoUpdate() {
 // Start auto-update when page loads
 setTimeout(() => {
   startMiniTrackerAutoUpdate();
+  startTopBarAutoUpdate();
   startLeftBadgesAutoUpdate();
   startColorMenuAutoUpdate();
   startCompactListAutoUpdate();
+  createTopProgressBar();
   
   // Pin functionality removed - Color Toggle is now just a simple toggle without persistence
 }, 2000); // Start after 2 seconds to let everything initialize
@@ -10152,6 +10374,8 @@ function buildCrosshairSettingsOverlay() {
     }
     let tempBorderEnabled = getBorderEnabled();
     let tempMiniTrackerEnabled = getMiniTrackerEnabled();
+    let tempTopBarEnabled = getTopBarEnabled();
+    let tempCollapseMinEnabled = getCollapseMinEnabled();
     let tempMobileMode = getMobileMode();
     let tempShowLeftOnColor = getShowLeftOnColorEnabled();
 
@@ -11077,7 +11301,7 @@ function buildCrosshairSettingsOverlay() {
   // Initialize radius visibility
   updateRadiusVisibility();
 
-  // Mini tracker section
+  // Unified Tracker Settings Section
   const trackerSection = document.createElement('div');
   trackerSection.style.cssText = `
     background: linear-gradient(135deg, var(--slate-800), var(--slate-750));
@@ -11089,77 +11313,240 @@ function buildCrosshairSettingsOverlay() {
     z-index: 1;
   `;
 
-  const trackerLabel = document.createElement('div');
-  trackerLabel.textContent = 'Mini Progress Tracker:';
-  trackerLabel.style.cssText = `
+  const trackerSectionTitle = document.createElement('div');
+  trackerSectionTitle.textContent = '📊 Tracker Settings:';
+  trackerSectionTitle.style.cssText = `
+    font-size: 1.1em; 
+    margin-bottom: 20px; 
+    color: var(--slate-100);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    border-bottom: 1px solid var(--slate-700);
+    padding-bottom: 12px;
+  `;
+
+  // Mini Progress Tracker Toggle
+  const miniTrackerContainer = document.createElement('div');
+  miniTrackerContainer.style.cssText = `
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--slate-700);
+  `;
+
+  const miniTrackerLabel = document.createElement('div');
+  miniTrackerLabel.textContent = 'Mini Progress Tracker:';
+  miniTrackerLabel.style.cssText = `
     font-size: 1em; 
-    margin-bottom: 12px; 
+    margin-bottom: 8px; 
     color: var(--slate-200);
     font-weight: 600;
     letter-spacing: -0.01em;
   `;
 
-  const trackerDescription = document.createElement('div');
-  trackerDescription.textContent = 'Show a compact progress tracker below the Color Filter button.';
-  trackerDescription.style.cssText = `
+  const miniTrackerDescription = document.createElement('div');
+  miniTrackerDescription.textContent = 'Show a compact progress tracker below the Color Filter button.';
+  miniTrackerDescription.style.cssText = `
     font-size: 0.9em; 
     color: var(--slate-300); 
-    margin-bottom: 16px; 
+    margin-bottom: 12px; 
     line-height: 1.4;
     letter-spacing: -0.005em;
   `;
 
-  const trackerToggle = document.createElement('div');
-  trackerToggle.style.cssText = `
+  const miniTrackerToggle = document.createElement('div');
+  miniTrackerToggle.style.cssText = `
     display: flex;
     align-items: center;
     gap: 8px;
   `;
 
-  const trackerCheckbox = document.createElement('input');
-  trackerCheckbox.type = 'checkbox';
-  trackerCheckbox.checked = tempMiniTrackerEnabled;
-  trackerCheckbox.style.cssText = `
+  const miniTrackerCheckbox = document.createElement('input');
+  miniTrackerCheckbox.type = 'checkbox';
+  miniTrackerCheckbox.checked = tempMiniTrackerEnabled;
+  miniTrackerCheckbox.style.cssText = `
     width: 16px;
     height: 16px;
     cursor: pointer;
   `;
 
-  const trackerToggleText = document.createElement('span');
-  trackerToggleText.textContent = tempMiniTrackerEnabled ? 'Enabled' : 'Disabled';
-  trackerToggleText.style.cssText = `
+  const miniTrackerToggleText = document.createElement('span');
+  miniTrackerToggleText.textContent = tempMiniTrackerEnabled ? 'Enabled' : 'Disabled';
+  miniTrackerToggleText.style.cssText = `
     color: ${tempMiniTrackerEnabled ? '#4caf50' : '#f44336'};
     font-weight: bold;
     cursor: pointer;
   `;
 
-  // Function to update tracker state (visual only, no saving)
-  const updateTrackerState = () => {
-    tempMiniTrackerEnabled = trackerCheckbox.checked;
-    trackerToggleText.textContent = tempMiniTrackerEnabled ? 'Enabled' : 'Disabled';
-    trackerToggleText.style.color = tempMiniTrackerEnabled ? '#4caf50' : '#f44336';
-    
-    // Only update visual state, actual saving happens on Apply
+  const updateMiniTrackerState = () => {
+    tempMiniTrackerEnabled = miniTrackerCheckbox.checked;
+    miniTrackerToggleText.textContent = tempMiniTrackerEnabled ? 'Enabled' : 'Disabled';
+    miniTrackerToggleText.style.color = tempMiniTrackerEnabled ? '#4caf50' : '#f44336';
     debugLog(`Mini tracker ${tempMiniTrackerEnabled ? 'enabled' : 'disabled'} (preview only)`);
   };
 
-  trackerCheckbox.addEventListener('change', updateTrackerState);
-
-  // Only make the TEXT clickable, not the whole container
-  trackerToggleText.onclick = (e) => {
-    e.stopPropagation(); // Prevent event bubbling
-    trackerCheckbox.checked = !trackerCheckbox.checked;
-    updateTrackerState();
+  miniTrackerCheckbox.addEventListener('change', updateMiniTrackerState);
+  miniTrackerToggleText.onclick = (e) => {
+    e.stopPropagation();
+    miniTrackerCheckbox.checked = !miniTrackerCheckbox.checked;
+    updateMiniTrackerState();
   };
 
-  // Remove cursor pointer from the container since only text should be clickable
-  trackerToggle.style.cursor = 'default';
+  miniTrackerToggle.style.cursor = 'default';
+  miniTrackerToggle.appendChild(miniTrackerCheckbox);
+  miniTrackerToggle.appendChild(miniTrackerToggleText);
+  miniTrackerContainer.appendChild(miniTrackerLabel);
+  miniTrackerContainer.appendChild(miniTrackerDescription);
+  miniTrackerContainer.appendChild(miniTrackerToggle);
 
-  trackerToggle.appendChild(trackerCheckbox);
-  trackerToggle.appendChild(trackerToggleText);
-  trackerSection.appendChild(trackerLabel);
-  trackerSection.appendChild(trackerDescription);
-  trackerSection.appendChild(trackerToggle);
+  // Top Progress Bar Toggle
+  const topBarContainer = document.createElement('div');
+  topBarContainer.style.cssText = `
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--slate-700);
+  `;
+
+  const topBarLabel = document.createElement('div');
+  topBarLabel.textContent = 'Top Progress Bar:';
+  topBarLabel.style.cssText = `
+    font-size: 1em; 
+    margin-bottom: 8px; 
+    color: var(--slate-200);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  `;
+
+  const topBarDescription = document.createElement('div');
+  topBarDescription.textContent = 'Show a centered progress bar at the top of the screen.';
+  topBarDescription.style.cssText = `
+    font-size: 0.9em; 
+    color: var(--slate-300); 
+    margin-bottom: 12px; 
+    line-height: 1.4;
+    letter-spacing: -0.005em;
+  `;
+
+  const topBarToggle = document.createElement('div');
+  topBarToggle.style.cssText = `
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  `;
+
+  const topBarCheckbox = document.createElement('input');
+  topBarCheckbox.type = 'checkbox';
+  topBarCheckbox.checked = tempTopBarEnabled;
+  topBarCheckbox.style.cssText = `
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  `;
+
+  const topBarToggleText = document.createElement('span');
+  topBarToggleText.textContent = tempTopBarEnabled ? 'Enabled' : 'Disabled';
+  topBarToggleText.style.cssText = `
+    color: ${tempTopBarEnabled ? '#4caf50' : '#f44336'};
+    font-weight: bold;
+    cursor: pointer;
+  `;
+
+  const updateTopBarState = () => {
+    tempTopBarEnabled = topBarCheckbox.checked;
+    topBarToggleText.textContent = tempTopBarEnabled ? 'Enabled' : 'Disabled';
+    topBarToggleText.style.color = tempTopBarEnabled ? '#4caf50' : '#f44336';
+    debugLog(`Top bar ${tempTopBarEnabled ? 'enabled' : 'disabled'} (preview only)`);
+  };
+
+  topBarCheckbox.addEventListener('change', updateTopBarState);
+  topBarToggleText.onclick = (e) => {
+    e.stopPropagation();
+    topBarCheckbox.checked = !topBarCheckbox.checked;
+    updateTopBarState();
+  };
+
+  topBarToggle.style.cursor = 'default';
+  topBarToggle.appendChild(topBarCheckbox);
+  topBarToggle.appendChild(topBarToggleText);
+  topBarContainer.appendChild(topBarLabel);
+  topBarContainer.appendChild(topBarDescription);
+  topBarContainer.appendChild(topBarToggle);
+
+  // Collapse Mini Tracker Toggle
+  const collapseContainer = document.createElement('div');
+  collapseContainer.style.cssText = `
+    margin-bottom: 0;
+  `;
+
+  const collapseLabel = document.createElement('div');
+  collapseLabel.textContent = 'Collapse Mini Tracker:';
+  collapseLabel.style.cssText = `
+    font-size: 1em; 
+    margin-bottom: 8px; 
+    color: var(--slate-200);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  `;
+
+  const collapseDescription = document.createElement('div');
+  collapseDescription.textContent = 'Hide mini tracker when template section is collapsed.';
+  collapseDescription.style.cssText = `
+    font-size: 0.9em; 
+    color: var(--slate-300); 
+    margin-bottom: 12px; 
+    line-height: 1.4;
+    letter-spacing: -0.005em;
+  `;
+
+  const collapseToggle = document.createElement('div');
+  collapseToggle.style.cssText = `
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  `;
+
+  const collapseCheckbox = document.createElement('input');
+  collapseCheckbox.type = 'checkbox';
+  collapseCheckbox.checked = tempCollapseMinEnabled;
+  collapseCheckbox.style.cssText = `
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  `;
+
+  const collapseToggleText = document.createElement('span');
+  collapseToggleText.textContent = tempCollapseMinEnabled ? 'Enabled' : 'Disabled';
+  collapseToggleText.style.cssText = `
+    color: ${tempCollapseMinEnabled ? '#4caf50' : '#f44336'};
+    font-weight: bold;
+    cursor: pointer;
+  `;
+
+  const updateCollapseState = () => {
+    tempCollapseMinEnabled = collapseCheckbox.checked;
+    collapseToggleText.textContent = tempCollapseMinEnabled ? 'Enabled' : 'Disabled';
+    collapseToggleText.style.color = tempCollapseMinEnabled ? '#4caf50' : '#f44336';
+    debugLog(`Collapse mini ${tempCollapseMinEnabled ? 'enabled' : 'disabled'} (preview only)`);
+  };
+
+  collapseCheckbox.addEventListener('change', updateCollapseState);
+  collapseToggleText.onclick = (e) => {
+    e.stopPropagation();
+    collapseCheckbox.checked = !collapseCheckbox.checked;
+    updateCollapseState();
+  };
+
+  collapseToggle.style.cursor = 'default';
+  collapseToggle.appendChild(collapseCheckbox);
+  collapseToggle.appendChild(collapseToggleText);
+  collapseContainer.appendChild(collapseLabel);
+  collapseContainer.appendChild(collapseDescription);
+  collapseContainer.appendChild(collapseToggle);
+
+  // Add all toggles to unified tracker section
+  trackerSection.appendChild(trackerSectionTitle);
+  trackerSection.appendChild(miniTrackerContainer);
+  trackerSection.appendChild(topBarContainer);
+  trackerSection.appendChild(collapseContainer);
 
   // Mobile Mode Section
   const mobileSection = document.createElement('div');
@@ -11374,111 +11761,6 @@ function buildCrosshairSettingsOverlay() {
   dragModeSection.appendChild(dragModeDescription);
   dragModeSection.appendChild(dragModeToggle);
 
-  // Collapse Mini Template Section
-  const collapseSection = document.createElement('div');
-  collapseSection.style.cssText = `
-    background: linear-gradient(135deg, var(--slate-800), var(--slate-750));
-    border: 1px solid var(--slate-700);
-    border-radius: ${sectionBorderRadius};
-    padding: ${sectionPadding};
-    margin-bottom: ${sectionMargin};
-    position: relative;
-    z-index: 1;
-  `;
-
-  const collapseLabel = document.createElement('div');
-  collapseLabel.textContent = 'Collapse Mini Template:';
-  collapseLabel.style.cssText = `
-    font-size: 1em; 
-    margin-bottom: 12px; 
-    color: var(--slate-200);
-    font-weight: 600;
-    letter-spacing: -0.01em;
-  `;
-
-  const collapseDescription = document.createElement('div');
-  collapseDescription.textContent = 'Hide mini tracker when template section is collapsed.';
-  collapseDescription.style.cssText = `
-    font-size: 0.9em; 
-    color: var(--slate-300); 
-    margin-bottom: 16px; 
-    line-height: 1.4;
-    letter-spacing: -0.005em;
-  `;
-
-  let tempCollapseMinEnabled = getCollapseMinEnabled();
-
-  const collapseToggle = document.createElement('div');
-  collapseToggle.style.cssText = `
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  `;
-
-  const collapseCheckbox = document.createElement('input');
-  collapseCheckbox.type = 'checkbox';
-  collapseCheckbox.checked = tempCollapseMinEnabled;
-  collapseCheckbox.style.cssText = `
-    width: 16px;
-    height: 16px;
-    cursor: pointer;
-  `;
-
-  const collapseToggleText = document.createElement('span');
-  collapseToggleText.textContent = tempCollapseMinEnabled ? 'Enabled' : 'Disabled';
-  collapseToggleText.style.cssText = `
-    color: ${tempCollapseMinEnabled ? '#4caf50' : '#f44336'};
-    font-weight: bold;
-    cursor: pointer;
-  `;
-
-  // Function to update collapse state
-  const updateCollapseState = () => {
-    tempCollapseMinEnabled = collapseCheckbox.checked;
-    collapseToggleText.textContent = tempCollapseMinEnabled ? 'Enabled' : 'Disabled';
-    collapseToggleText.style.color = tempCollapseMinEnabled ? '#4caf50' : '#f44336';
-    
-    debugLog(`Collapse mini template ${tempCollapseMinEnabled ? 'enabled' : 'disabled'}`);
-  };
-
-  collapseCheckbox.addEventListener('change', updateCollapseState);
-
-  // Only make the TEXT clickable, not the whole container
-  collapseToggleText.onclick = (e) => {
-    e.stopPropagation(); // Prevent event bubbling
-    collapseCheckbox.checked = !collapseCheckbox.checked;
-    updateCollapseState();
-  };
-
-  // Remove cursor pointer from the container since only text should be clickable
-  collapseToggle.style.cursor = 'default';
-
-  collapseToggle.appendChild(collapseCheckbox);
-  collapseToggle.appendChild(collapseToggleText);
-  // Visual feedback for enabled/disabled
-  const applyCollapseVisual = () => {
-    collapseToggleText.style.background = '';
-    collapseToggleText.style.border = '';
-    collapseToggleText.style.padding = '';
-    collapseToggleText.style.borderRadius = '';
-    collapseToggleText.style.color = tempCollapseMinEnabled ? '#4caf50' : '#f44336';
-    collapseToggleText.textContent = tempCollapseMinEnabled ? 'Enabled' : 'Disabled';
-  };
-  applyCollapseVisual();
-  const oldUpdateCollapse = updateCollapseState;
-  const updateCollapseStateWrapped = () => { oldUpdateCollapse(); applyCollapseVisual(); };
-  collapseCheckbox.removeEventListener('change', updateCollapseState);
-  collapseCheckbox.addEventListener('change', updateCollapseStateWrapped);
-  // Make TEXT clickable too
-  collapseToggleText.onclick = (e) => {
-    e.stopPropagation();
-    collapseCheckbox.checked = !collapseCheckbox.checked;
-    updateCollapseStateWrapped();
-  };
-  collapseSection.appendChild(collapseLabel);
-  collapseSection.appendChild(collapseDescription);
-  collapseSection.appendChild(collapseToggle);
-
   // Create fixed footer with action buttons
   const footerContainer = document.createElement('div');
   const footerPadding = isMobileMode ? '10px 12px' : '16px 20px';
@@ -11599,13 +11881,14 @@ function buildCrosshairSettingsOverlay() {
     
     try {
       // Save all settings
-      debugLog('Applying crosshair settings:', { color: tempColor, borders: tempBorderEnabled, miniTracker: tempMiniTrackerEnabled, collapse: tempCollapseMinEnabled, mobile: tempMobileMode, showLeftOnColor: tempShowLeftOnColor, navigation: tempNavigationMethod, debug: tempDebugEnabled, smartCache: tempCacheEnabled });
+      debugLog('Applying crosshair settings:', { color: tempColor, borders: tempBorderEnabled, miniTracker: tempMiniTrackerEnabled, topBar: tempTopBarEnabled, collapse: tempCollapseMinEnabled, mobile: tempMobileMode, showLeftOnColor: tempShowLeftOnColor, navigation: tempNavigationMethod, debug: tempDebugEnabled, smartCache: tempCacheEnabled });
       
       saveCrosshairColor(tempColor);
       saveBorderEnabled(tempBorderEnabled);
       saveEnhancedSizeEnabled(tempEnhancedSize);
       saveCrosshairRadius(tempRadius);
       saveMiniTrackerEnabled(tempMiniTrackerEnabled);
+      saveTopBarEnabled(tempTopBarEnabled);
       saveCollapseMinEnabled(tempCollapseMinEnabled);
       saveMobileMode(tempMobileMode);
       saveShowLeftOnColorEnabled(tempShowLeftOnColor);
@@ -11621,6 +11904,10 @@ function buildCrosshairSettingsOverlay() {
       
       // Apply mobile mode to existing Color Filter overlay dynamically
       applyMobileModeToColorFilter(tempMobileMode);
+      
+      // Update top bar visibility
+      createTopProgressBar();
+      startTopBarAutoUpdate();
 
       // Refresh palette badges immediately after applying settings
       try {
@@ -11883,7 +12170,6 @@ function buildCrosshairSettingsOverlay() {
   leftOnColorSection.appendChild(leftOnColorToggle);
   contentContainer.appendChild(mobileSection);
   contentContainer.appendChild(leftOnColorSection);
-  contentContainer.appendChild(collapseSection);
 
   // Navigation method section
   const navigationSection = document.createElement('div');
