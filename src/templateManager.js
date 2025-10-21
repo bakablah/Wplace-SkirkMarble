@@ -72,55 +72,9 @@ export default class TemplateManager {
     this.loadWrongColorSettings();
     
     // Template
-    this.canvasTemplate = null; // Our canvas
-    this.canvasTemplateZoomed = null; // The template when zoomed out
-    this.canvasTemplateID = 'bm-canvas'; // Our canvas ID
-    this.canvasMainID = 'div#map canvas.maplibregl-canvas'; // The selector for the main canvas
-    this.template = null; // The template image.
-    this.templateState = ''; // The state of the template ('blob', 'proccessing', 'template', etc.)
     this.templatesArray = []; // All Template instnaces currently loaded (Template)
     this.templatesJSON = null; // All templates currently loaded (JSON)
     this.templatesShouldBeDrawn = true; // Should ALL templates be drawn to the canvas?
-  }
-
-  /** Retrieves the pixel art canvas.
-   * If the canvas has been updated/replaced, it retrieves the new one.
-   * @param {string} selector - The CSS selector to use to find the canvas.
-   * @returns {HTMLCanvasElement|null} The canvas as an HTML Canvas Element, or null if the canvas does not exist
-   * @since 0.58.3
-   * @deprecated Not in use since 0.63.25
-   */
-  /* @__PURE__ */getCanvas() {
-
-    // If the stored canvas is "fresh", return the stored canvas
-    if (document.body.contains(this.canvasTemplate)) {return this.canvasTemplate;}
-    // Else, the stored canvas is "stale", get the canvas again
-
-    // Attempt to find and destroy the "stale" canvas
-    document.getElementById(this.canvasTemplateID)?.remove(); 
-
-    const canvasMain = document.querySelector(this.canvasMainID);
-
-    const canvasTemplateNew = document.createElement('canvas');
-    canvasTemplateNew.id = this.canvasTemplateID;
-    canvasTemplateNew.className = 'maplibregl-canvas';
-    canvasTemplateNew.style.position = 'absolute';
-    canvasTemplateNew.style.top = '0';
-    canvasTemplateNew.style.left = '0';
-    canvasTemplateNew.style.height = `${canvasMain?.clientHeight * (window.devicePixelRatio || 1)}px`;
-    canvasTemplateNew.style.width = `${canvasMain?.clientWidth * (window.devicePixelRatio || 1)}px`;
-    canvasTemplateNew.height = canvasMain?.clientHeight * (window.devicePixelRatio || 1);
-    canvasTemplateNew.width = canvasMain?.clientWidth * (window.devicePixelRatio || 1);
-    canvasTemplateNew.style.zIndex = '8999';
-    canvasTemplateNew.style.pointerEvents = 'none';
-    canvasMain?.parentElement?.appendChild(canvasTemplateNew); // Append the newCanvas as a child of the parent of the main canvas
-    this.canvasTemplate = canvasTemplateNew; // Store the new canvas
-
-    window.addEventListener('move', this.onMove);
-    window.addEventListener('zoom', this.onZoom);
-    window.addEventListener('resize', this.onResize);
-
-    return this.canvasTemplate; // Return the new canvas
   }
 
   /** Creates the JSON object to store templates in
@@ -238,6 +192,19 @@ export default class TemplateManager {
     const { templateTiles, templateTilesBuffers } = await template.createTemplateTiles(this.tileSize);
     template.chunked = templateTiles;
 
+    // Convert original image to base64 for thumbnail
+    let thumbnailBase64 = null;
+    try {
+      const reader = new FileReader();
+      thumbnailBase64 = await new Promise((resolve, reject) => {
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      debugLog('Failed to create thumbnail from original image:', error);
+    }
+    
     // Appends a child into the templates object
     // The child's name is the number of templates already in the list (sort order) plus the encoded player ID
     this.templatesJSON.templates[`${template.sortID} ${template.authorID}`] = {
@@ -250,7 +217,8 @@ export default class TemplateManager {
       "enabled": true,
       "disabledColors": template.getDisabledColors(),
       "enhancedColors": template.getEnhancedColors(),
-      "tiles": templateTilesBuffers
+      "tiles": templateTilesBuffers,
+      "thumbnail": thumbnailBase64 // Store original image as thumbnail
     };
 
     // Update JSON metadata
@@ -274,12 +242,6 @@ export default class TemplateManager {
 
 
     await this.#storeTemplates();
-  }
-
-  /** Generates a {@link Template} class instance from the JSON object template
-   */
-  #loadTemplate() {
-
   }
 
   /** Stores the JSON object of the loaded templates into storage with fallback system.
@@ -468,16 +430,6 @@ export default class TemplateManager {
     }
   }
 
-  /** Disables the template from view
-   */
-  async disableTemplate() {
-
-    // Creates the JSON object if it does not already exist
-    if (!this.templatesJSON) {this.templatesJSON = await this.createJSON();}
-
-
-  }
-
   /** Draws all templates on the specified tile.
    * This method handles the rendering of template overlays on individual tiles.
    * @param {File} tileBlob - The pixels that are placed on a tile
@@ -657,8 +609,6 @@ export default class TemplateManager {
         // Fast path: Normal drawing without enhancement or color filtering
         debugLog(`Using fast path (no enhancements)`);
         context.drawImage(template.bitmap, Number(template.pixelCoords[0]) * this.drawMult, Number(template.pixelCoords[1]) * this.drawMult);
-        
-
       } else {
         // Enhanced/Filtered path: Real-time processing for color filtering and/or enhanced mode
         debugLog(`Using enhanced/filtered path`);
@@ -1410,12 +1360,6 @@ export default class TemplateManager {
         }
       }
     }
-  }
-
-  /** Parses the OSU! Place JSON object
-   */
-  #parseOSU() {
-
   }
 
   /** Sets the `templatesShouldBeDrawn` boolean to a value.

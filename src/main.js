@@ -3239,58 +3239,92 @@ function showTemplateManageDialog(instance) {
     const pixelCount = template.pixelCount || 0;
     const isEnabled = templateManager.isTemplateEnabled(templateKey);
     
+    // Main template card - modern gradient design
     const templateItem = document.createElement('div');
     templateItem.className = 'bm-template-item';
     templateItem.style.cssText = `
       display: flex;
-      justify-content: space-between;
-      align-items: center;
+      flex-direction: column;
       padding: 16px;
-      background: #334155;
-      border-radius: 12px;
-      border: 1px solid #475569;
+      background: linear-gradient(145deg, #374151 0%, #1f2937 100%);
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      gap: 14px;
+      max-width: 480px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
     `;
     
-    const templateInfo = document.createElement('div');
-    templateInfo.style.cssText = `
-      flex: 1;
-      min-width: 0;
-      margin-right: 16px;
+    // HEADER: Edit button + Name
+    const headerRow = document.createElement('div');
+    headerRow.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 0;
     `;
     
-    // Name + pencil (inline rename)
-    const nameRow = document.createElement('div');
-    nameRow.style.cssText = 'display:flex; align-items:center; gap:8px; margin-bottom:6px;';
     const renameBtn = document.createElement('button');
     renameBtn.innerHTML = icons.pencilIcon;
     renameBtn.title = 'Rename template';
     renameBtn.style.cssText = `
-      padding: 6px; border: 1px solid #475569; border-radius: 8px; cursor: pointer;
-      background: #1f2937; color: #e2e8f0; min-width: 32px; height: 32px; display:flex; align-items:center; justify-content:center;`;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    `;
+    renameBtn.onmouseover = () => {
+      renameBtn.style.background = 'rgba(0, 0, 0, 0.4)';
+      renameBtn.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+      renameBtn.style.transform = 'scale(1.05)';
+    };
+    renameBtn.onmouseout = () => {
+      renameBtn.style.background = 'rgba(0, 0, 0, 0.3)';
+      renameBtn.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+      renameBtn.style.transform = '';
+    };
+    
     const nameLabel = document.createElement('div');
     nameLabel.textContent = templateName;
     nameLabel.style.cssText = `
+      color: #f9fafb;
+      font-size: 18px;
       font-weight: 600;
-      font-size: 1em;
-      color: #f1f5f9;
+      letter-spacing: -0.01em;
+      cursor: pointer;
+      flex: 1;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      flex: 1;
-      padding: 4px 6px;
-      border-radius: 6px;
     `;
+    
     const startInlineRename = () => {
       const input = document.createElement('input');
       input.type = 'text';
       input.value = nameLabel.textContent || '';
       input.style.cssText = `
-        width: 100%; font-weight: 600; font-size: 1em; color: #f1f5f9;
-        border: 1px solid #475569; background: #1f2937; border-radius: 6px; padding: 6px 10px; outline: none;`;
+        font-size: 18px;
+        font-weight: 600;
+        color: #f9fafb;
+        border: 2px solid #3b82f6;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 8px;
+        padding: 4px 8px;
+        outline: none;
+        width: 100%;
+        letter-spacing: -0.01em;
+      `;
+      
       const finish = async (commit) => {
         const newVal = input.value.trim();
-        nameRow.replaceChild(nameLabel, input);
-        if (!commit) return; // cancel
+        headerRow.replaceChild(nameLabel, input);
+        if (!commit) return;
         if (!newVal || newVal === nameLabel.textContent) return;
         const ok = await templateManager.renameTemplate(templateKey, newVal);
         if (ok) {
@@ -3300,65 +3334,98 @@ function showTemplateManageDialog(instance) {
           instance.handleDisplayError('Failed to rename template');
         }
       };
+      
       input.addEventListener('keydown', (ev) => {
         if (ev.key === 'Enter') finish(true);
         else if (ev.key === 'Escape') finish(false);
         ev.stopPropagation();
       });
       input.addEventListener('blur', () => finish(true));
-      nameRow.replaceChild(input, nameLabel);
+      headerRow.replaceChild(input, nameLabel);
       setTimeout(() => { input.focus(); input.select(); }, 0);
     };
+    
     renameBtn.onclick = (e) => { e.stopPropagation(); startInlineRename(); };
     nameLabel.onclick = (e) => { e.stopPropagation(); startInlineRename(); };
-    nameRow.appendChild(renameBtn);
-    nameRow.appendChild(nameLabel);
+    headerRow.appendChild(renameBtn);
+    headerRow.appendChild(nameLabel);
     
-    const infoSpan = document.createElement('div');
-    const validPixelCount = template.validPixelCount || pixelCount; // Fallback for older templates
-    const transparentPixelCount = template.transparentPixelCount || 0;
-    
-    if (validPixelCount !== pixelCount && transparentPixelCount > 0) {
-      infoSpan.textContent = `${new Intl.NumberFormat().format(pixelCount)} pixels (${new Intl.NumberFormat().format(validPixelCount)} valid)`;
-    } else {
-      infoSpan.textContent = `${new Intl.NumberFormat().format(pixelCount)} pixels`;
-    }
-    
-    infoSpan.style.cssText = `
-      font-size: 0.85em;
-      color: #94a3b8;
-      margin-bottom: 4px;
+    // CONTENT ROW: Thumbnail + Actions/Info
+    const contentRow = document.createElement('div');
+    contentRow.style.cssText = `
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
     `;
     
-    const coordsSpan = document.createElement('div');
-    if (templateCoords && templateCoords !== 'Unknown location') {
-      const coords = templateCoords.split(', ');
-      if (coords.length === 4) {
-        const [tileX, tileY, pX, pY] = coords;
-        coordsSpan.textContent = `📍 Tile ${tileX},${tileY} • Pixel ${pX},${pY}`;
-      } else {
-        coordsSpan.textContent = `📍 ${templateCoords}`;
-      }
-    } else {
-      coordsSpan.textContent = '📍 Unknown location';
-    }
-    coordsSpan.style.cssText = `
-      font-size: 0.75em;
-      color: #60a5fa;
-      font-weight: 500;
+    // Thumbnail with radial gradient effect
+    const thumbnailContainer = document.createElement('div');
+    thumbnailContainer.style.cssText = `
+      width: 95px;
+      height: 95px;
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      flex-shrink: 0;
+      position: relative;
+      overflow: hidden;
     `;
     
-    templateInfo.appendChild(nameRow);
-    templateInfo.appendChild(infoSpan);
-    templateInfo.appendChild(coordsSpan);
+    // Add radial gradient overlay
+    const gradientOverlay = document.createElement('div');
+    gradientOverlay.style.cssText = `
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at center, rgba(59, 130, 246, 0.05) 0%, transparent 70%);
+      pointer-events: none;
+    `;
+    thumbnailContainer.appendChild(gradientOverlay);
     
-    // Button container
-    const buttonContainer = document.createElement('div');
-    buttonContainer.classList.add('templateInfoControls');
-    buttonContainer.style.cssText = `
+    if (template.thumbnail) {
+      const thumbnailImg = document.createElement('img');
+      thumbnailImg.src = template.thumbnail;
+      thumbnailImg.style.cssText = `
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        image-rendering: pixelated;
+        position: relative;
+        z-index: 1;
+      `;
+      thumbnailContainer.appendChild(thumbnailImg);
+    } else {
+      const noImageText = document.createElement('span');
+      noImageText.textContent = 'No Image';
+      noImageText.style.cssText = `
+        color: #6b7280;
+        font-size: 10px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        position: relative;
+        z-index: 1;
+      `;
+      thumbnailContainer.appendChild(noImageText);
+    }
+    
+    // Right section (actions + info)
+    const rightSection = document.createElement('div');
+    rightSection.style.cssText = `
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    `;
+    
+    // Actions row
+    const actionsRow = document.createElement('div');
+    actionsRow.style.cssText = `
       display: flex;
       gap: 8px;
-      align-items: center;
+      flex-wrap: wrap;
     `;
     
     // Export button
@@ -3366,66 +3433,34 @@ function showTemplateManageDialog(instance) {
     exportBtn.innerHTML = icons.exportIcon;
     exportBtn.title = 'Export this template as JSON';
     exportBtn.style.cssText = `
-      padding: 8px;
+      width: 40px;
+      height: 40px;
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
       cursor: pointer;
-      min-width: 36px;
-      height: 36px;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(135deg, #22c55e, #16a34a);
+      background: #22c55e;
       color: white;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
     `;
-
+    exportBtn.onmouseover = () => {
+      exportBtn.style.background = '#16a34a';
+      exportBtn.style.transform = 'translateY(-2px)';
+      exportBtn.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
+    };
+    exportBtn.onmouseout = () => {
+      exportBtn.style.background = '#22c55e';
+      exportBtn.style.transform = '';
+      exportBtn.style.boxShadow = '';
+    };
     exportBtn.onclick = () => {
+      exportBtn.style.transform = 'scale(0.95)';
+      setTimeout(() => { exportBtn.style.transform = ''; }, 150);
       templateManager.downloadTemplateJSON(templateKey);
       instance.handleDisplayStatus(`Exported "${templateName}"`);
-    };
-    
-    // Toggle button
-    const toggleBtn = document.createElement('button');
-    toggleBtn.textContent = isEnabled ? 'Enabled' : 'Disabled';
-    toggleBtn.style.cssText = `
-      padding: 8px 16px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 0.85em;
-      font-weight: 600;
-      min-width: 80px;
-      ${isEnabled 
-        ? 'background: linear-gradient(135deg, #10b981, #059669); color: white;'
-        : 'background: linear-gradient(135deg, #64748b, #475569); color: #e2e8f0;'
-      }
-    `;
-    
-    toggleBtn.onclick = () => {
-      const newState = !templateManager.isTemplateEnabled(templateKey);
-      templateManager.setTemplateEnabled(templateKey, newState);
-      
-      // Invalidate cache after template enable/disable
-      invalidateTemplateCache();
-      
-      // Update button appearance
-      toggleBtn.textContent = newState ? 'Enabled' : 'Disabled';
-      toggleBtn.style.background = newState 
-        ? 'linear-gradient(135deg, #10b981, #059669)'
-        : 'linear-gradient(135deg, #64748b, #475569)';
-      toggleBtn.style.color = newState ? 'white' : '#e2e8f0';
-      
-      instance.handleDisplayStatus(`${newState ? 'Enabled' : 'Disabled'} template "${templateName}"!`);
-      
-      // Update Color Menu after template enable/disable
-      setTimeout(() => {
-        if (typeof clearColorMenuCache === 'function') {
-          clearColorMenuCache();
-        }
-        if (typeof updateColorMenuDisplay === 'function') {
-          updateColorMenuDisplay(false, true);
-        }
-      }, 200);
     };
     
     // Fly button
@@ -3433,27 +3468,39 @@ function showTemplateManageDialog(instance) {
     flyBtn.innerHTML = icons.pinIcon;
     flyBtn.title = 'Fly to template coordinates';
     flyBtn.style.cssText = `
-      padding: 8px;
+      width: 40px;
+      height: 40px;
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
       cursor: pointer;
-      min-width: 36px;
-      height: 36px;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      background: #3b82f6;
       color: white;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
     `;
-    
+    flyBtn.onmouseover = () => {
+      flyBtn.style.background = '#2563eb';
+      flyBtn.style.transform = 'translateY(-2px)';
+      flyBtn.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
+    };
+    flyBtn.onmouseout = () => {
+      flyBtn.style.background = '#3b82f6';
+      flyBtn.style.transform = '';
+      flyBtn.style.boxShadow = '';
+    };
     flyBtn.onclick = () => {
+      flyBtn.style.transform = 'scale(0.95)';
+      setTimeout(() => { flyBtn.style.transform = ''; }, 150);
+      
       if (templateCoords && templateCoords !== 'Unknown location') {
         const coords = templateCoords.split(', ');
         if (coords.length === 4) {
           const [tileX, tileY, pX, pY] = coords.map(coord => parseInt(coord.trim(), 10));
           const coordinates = [tileX, tileY, pX, pY];
           
-          // Auto-fill coordinate inputs with template coordinates
           const coordTxInput = document.querySelector('#bm-input-tx');
           const coordTyInput = document.querySelector('#bm-input-ty');
           const coordPxInput = document.querySelector('#bm-input-px');
@@ -3464,11 +3511,9 @@ function showTemplateManageDialog(instance) {
           if (coordPxInput) coordPxInput.value = pX;
           if (coordPyInput) coordPyInput.value = pY;
           
-          // Convert to lat/lng
           const latLng = canvasPosToLatLng(coordinates);
           
           if (latLng) {
-            // Use navigation method setting
             const navigationMethod = Settings.getNavigationMethod();
             
             if (navigationMethod === 'openurl') {
@@ -3479,8 +3524,7 @@ function showTemplateManageDialog(instance) {
               flyToLatLng(latLng.lat, latLng.lng);
             }
             
-            document.body.removeChild(overlay)
-            
+            document.body.removeChild(overlay);
             instance.handleDisplayStatus(`🧭 ${navigationMethod === 'openurl' ? 'Navigating' : 'Flying'} to "${templateName}" at ${latLng.lat.toFixed(6)}, ${latLng.lng.toFixed(6)}! Coordinates auto-filled.`);
           } else {
             instance.handleDisplayStatus('❌ Unable to convert coordinates to location!');
@@ -3498,21 +3542,33 @@ function showTemplateManageDialog(instance) {
     deleteBtn.innerHTML = icons.deleteIcon;
     deleteBtn.title = 'Delete this template';
     deleteBtn.style.cssText = `
-      padding: 8px;
+      width: 40px;
+      height: 40px;
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
       cursor: pointer;
-      min-width: 36px;
-      height: 36px;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(135deg, #ef4444, #dc2626);
+      background: #ef4444;
       color: white;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
     `;
-    
+    deleteBtn.onmouseover = () => {
+      deleteBtn.style.background = '#dc2626';
+      deleteBtn.style.transform = 'translateY(-2px)';
+      deleteBtn.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
+    };
+    deleteBtn.onmouseout = () => {
+      deleteBtn.style.background = '#ef4444';
+      deleteBtn.style.transform = '';
+      deleteBtn.style.boxShadow = '';
+    };
     deleteBtn.onclick = (e) => {
       e.stopPropagation();
+      deleteBtn.style.transform = 'scale(0.95)';
+      setTimeout(() => { deleteBtn.style.transform = ''; }, 150);
       
       showCustomConfirmDialog(
         `Delete "${templateName}"?`,
@@ -3522,26 +3578,19 @@ function showTemplateManageDialog(instance) {
             const success = await templateManager.deleteTemplate(templateKey);
             
             if (success) {
-              // Invalidate cache after template deletion
               invalidateTemplateCache();
-              
-              // Remove the template item from the dialog
               templateItem.remove();
-              
               instance.handleDisplayStatus(`Successfully deleted template "${templateName}"!`);
               debugLog(`🗑️ Deleted template: ${templateName} (${templateKey})`);
               
-              // Check if there are no more templates left
               const remainingTemplates = templateList.children.length;
               if (remainingTemplates === 0) {
-                // Close the dialog if no templates remain
                 document.body.removeChild(overlay);
                 instance.handleDisplayStatus('All templates deleted - dialog closed');
               }
             } else {
               throw new Error('Delete operation returned false');
             }
-            
           } catch (error) {
             console.error('❌ Failed to delete template:', error);
             instance.handleDisplayError('Failed to delete template. Check console for details.');
@@ -3549,14 +3598,150 @@ function showTemplateManageDialog(instance) {
         }
       );
     };
-
-    buttonContainer.appendChild(exportBtn);
-    buttonContainer.appendChild(flyBtn);
-    buttonContainer.appendChild(deleteBtn);
-    buttonContainer.appendChild(toggleBtn);
     
-    templateItem.appendChild(templateInfo);
-    templateItem.appendChild(buttonContainer);
+    // Toggle button
+    const toggleBtn = document.createElement('button');
+    toggleBtn.textContent = isEnabled ? 'Enabled' : 'Disabled';
+    toggleBtn.style.cssText = `
+      background: ${isEnabled ? '#10b981' : '#4b5563'};
+      padding: 0 16px;
+      border-radius: 10px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: ${isEnabled ? 'white' : '#d1d5db'};
+      font-size: 13px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    `;
+    toggleBtn.onmouseover = () => {
+      toggleBtn.style.background = isEnabled ? '#059669' : '#374151';
+      toggleBtn.style.transform = 'translateY(-2px)';
+      toggleBtn.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
+    };
+    toggleBtn.onmouseout = () => {
+      toggleBtn.style.background = isEnabled ? '#10b981' : '#4b5563';
+      toggleBtn.style.transform = '';
+      toggleBtn.style.boxShadow = '';
+    };
+    toggleBtn.onclick = () => {
+      toggleBtn.style.transform = 'scale(0.95)';
+      setTimeout(() => { toggleBtn.style.transform = ''; }, 150);
+      
+      const newState = !templateManager.isTemplateEnabled(templateKey);
+      templateManager.setTemplateEnabled(templateKey, newState);
+      invalidateTemplateCache();
+      
+      toggleBtn.textContent = newState ? 'Enabled' : 'Disabled';
+      toggleBtn.style.background = newState ? '#10b981' : '#4b5563';
+      toggleBtn.style.color = newState ? 'white' : '#d1d5db';
+      
+      instance.handleDisplayStatus(`${newState ? 'Enabled' : 'Disabled'} template "${templateName}"!`);
+      
+      setTimeout(() => {
+        if (typeof clearColorMenuCache === 'function') {
+          clearColorMenuCache();
+        }
+        if (typeof updateColorMenuDisplay === 'function') {
+          updateColorMenuDisplay(false, true);
+        }
+      }, 200);
+    };
+    
+    actionsRow.appendChild(exportBtn);
+    actionsRow.appendChild(flyBtn);
+    actionsRow.appendChild(deleteBtn);
+    actionsRow.appendChild(toggleBtn);
+    
+    // Info box (tile and pixels)
+    const infoBox = document.createElement('div');
+    infoBox.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    `;
+    
+    // Tile info with arrow
+    const tileInfoRow = document.createElement('div');
+    tileInfoRow.style.cssText = `
+      display: flex;
+      gap: 8px;
+      font-size: 13px;
+      align-items: center;
+    `;
+    
+    if (templateCoords && templateCoords !== 'Unknown location') {
+      const coords = templateCoords.split(', ');
+      if (coords.length === 4) {
+        const [tileX, tileY, pX, pY] = coords;
+        
+        const arrow = document.createElement('span');
+        arrow.textContent = '↑';
+        arrow.style.cssText = `
+          color: #ef4444;
+          font-weight: bold;
+        `;
+        
+        const tileText = document.createElement('span');
+        tileText.textContent = `Tile ${tileX},${tileY}`;
+        tileText.style.cssText = `
+          color: #60a5fa;
+        `;
+        
+        const separator = document.createElement('span');
+        separator.textContent = '•';
+        separator.style.cssText = `color: #6b7280;`;
+        
+        const pixelText = document.createElement('span');
+        pixelText.textContent = `Pixel ${pX},${pY}`;
+        pixelText.style.cssText = `
+          color: #60a5fa;
+        `;
+        
+        tileInfoRow.appendChild(arrow);
+        tileInfoRow.appendChild(tileText);
+        tileInfoRow.appendChild(separator);
+        tileInfoRow.appendChild(pixelText);
+      }
+    } else {
+      tileInfoRow.textContent = '↑ Unknown location';
+      tileInfoRow.style.color = '#6b7280';
+    }
+    
+    // Pixels info
+    const validPixelCount = template.validPixelCount || pixelCount;
+    const transparentPixelCount = template.transparentPixelCount || 0;
+    
+    const pixelsInfo = document.createElement('div');
+    if (validPixelCount !== pixelCount && transparentPixelCount > 0) {
+      pixelsInfo.textContent = `${new Intl.NumberFormat().format(pixelCount)} pixels (${new Intl.NumberFormat().format(validPixelCount)} valid)`;
+    } else {
+      pixelsInfo.textContent = `${new Intl.NumberFormat().format(pixelCount)} pixels`;
+    }
+    pixelsInfo.style.cssText = `
+      color: #d1d5db;
+      font-size: 14px;
+      font-weight: 600;
+    `;
+    
+    infoBox.appendChild(tileInfoRow);
+    infoBox.appendChild(pixelsInfo);
+    
+    // Assemble right section
+    rightSection.appendChild(actionsRow);
+    rightSection.appendChild(infoBox);
+    
+    // Assemble content row
+    contentRow.appendChild(thumbnailContainer);
+    contentRow.appendChild(rightSection);
+    
+    // Assemble card: Header → Content
+    templateItem.appendChild(headerRow);
+    templateItem.appendChild(contentRow);
     templateList.appendChild(templateItem);
     }
     
