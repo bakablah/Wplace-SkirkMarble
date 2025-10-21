@@ -9,7 +9,6 @@
 // @icon         https://raw.githubusercontent.com/Seris0/Wplace-SkirkMarble/87694688cb85611cbbe9719f852803949289c8af/dist/assets/Favicon.png
 // @updateURL    https://raw.githubusercontent.com/Seris0/Wplace-SkirkMarble/main/dist/SkirkMarble.user.js
 // @downloadURL  https://raw.githubusercontent.com/Seris0/Wplace-SkirkMarble/main/dist/SkirkMarble.user.js
-// @run-at       document-start
 // @match        *://*.wplace.live/*
 // @grant        GM_getResourceText
 // @grant        GM_addStyle
