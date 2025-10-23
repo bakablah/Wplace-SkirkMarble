@@ -134,34 +134,38 @@ export default class TemplateManager {
 
     this.overlay.handleDisplayStatus(`Creating template at ${coords.join(', ')}...`);
 
-    // Create a temporary template instance to get pixel count for duplicate detection
-    const tempTemplate = new Template({
+    // Determine sortID first (for duplicates, reuse existing sortID)
+    const existingSortIDs = Object.keys(this.templatesJSON.templates).map(key => parseInt(key.split(' ')[0]));
+    const nextSortID = existingSortIDs.length > 0 ? Math.max(...existingSortIDs) + 1 : 0;
+
+    // Creates the template instance ONCE
+    const template = new Template({
       displayName: name,
-      sortID: 0, // Temporary sortID
+      sortID: nextSortID,
       authorID: numberToEncoded(this.userID || 0, this.encodingBase),
       file: blob,
       coords: coords
     });
-    const { templateTiles: tempTiles, templateTilesBuffers: tempBuffers } = await tempTemplate.createTemplateTiles(this.tileSize);
-    tempTemplate.chunked = tempTiles;
+    
+    // Process template tiles (this is the heavy operation - do it only once!)
+    const { templateTiles, templateTilesBuffers } = await template.createTemplateTiles(this.tileSize);
+    template.chunked = templateTiles;
 
-    // Check for duplicate templates (same name and pixel count)
-    // DEBUG: Log template creation details
-    debugLog(` Creating template: "${name}" with ${tempTemplate.pixelCount} pixels`);
-    debugLog(` Existing templates:`, Object.keys(this.templatesJSON.templates));
+    // Check for duplicate templates AFTER processing (using actual pixel count)
+    debugLog(` Creating template: "${name}" with ${template.pixelCount} pixels`);
     
-    // TEMPORARY: Allow disabling duplicate detection for debugging
-    const ENABLE_DUPLICATE_DETECTION = true; // Set to false to disable
+    const ENABLE_DUPLICATE_DETECTION = true;
+    const duplicateKey = ENABLE_DUPLICATE_DETECTION ? this.findDuplicateTemplate(name, template.pixelCount) : null;
     
-    const duplicateKey = ENABLE_DUPLICATE_DETECTION ? this.findDuplicateTemplate(name, tempTemplate.pixelCount) : null;
-    debugLog(` Duplicate check result:`, duplicateKey ? `Found: ${duplicateKey}` : 'No duplicates found');
-    
-    let template, sortID;
+    let finalSortID = nextSortID;
     if (duplicateKey) {
       // Replace existing template
-      sortID = parseInt(duplicateKey.split(' ')[0]);
+      finalSortID = parseInt(duplicateKey.split(' ')[0]);
       this.overlay.handleDisplayStatus(`Duplicate detected! Replacing existing template "${name}"...`);
       debugLog(`Replacing duplicate template: ${duplicateKey}`);
+      
+      // Update template with existing sortID
+      template.sortID = finalSortID;
       
       // Remove old template from array
       const oldTemplateIndex = this.templatesArray.findIndex(t => `${t.sortID} ${t.authorID}` === duplicateKey);
@@ -174,23 +178,7 @@ export default class TemplateManager {
         delete this.templatesJSON.templates[duplicateKey];
         debugLog(` Removed old duplicate template from JSON: ${duplicateKey}`);
       }
-    } else {
-      // Create new template with next available sortID
-      // Find the highest existing sortID and increment by 1
-      const existingSortIDs = Object.keys(this.templatesJSON.templates).map(key => parseInt(key.split(' ')[0]));
-      sortID = existingSortIDs.length > 0 ? Math.max(...existingSortIDs) + 1 : 0;
     }
-
-    // Creates the final template instance
-    template = new Template({
-      displayName: name,
-      sortID: sortID,
-      authorID: numberToEncoded(this.userID || 0, this.encodingBase),
-      file: blob,
-      coords: coords
-    });
-    const { templateTiles, templateTilesBuffers } = await template.createTemplateTiles(this.tileSize);
-    template.chunked = templateTiles;
 
     // Convert original image to base64 for thumbnail
     let thumbnailBase64 = null;
@@ -240,8 +228,11 @@ export default class TemplateManager {
     const actionText = duplicateKey ? 'replaced' : 'created';
     this.overlay.handleDisplayStatus(`Template #${template.sortID} ${actionText} at ${coords.join(', ')}! Total pixels: ${pixelCountFormatted} | Total templates: ${totalTemplates}`);
 
-
-    await this.#storeTemplates();
+    // Store templates in background (non-blocking)
+    this.#storeTemplates().catch(error => {
+      console.error('❌ Template storage failed:', error);
+      this.overlay.handleDisplayStatus(`Template created but storage failed: ${error.message}`);
+    });
   }
 
   /** Stores the JSON object of the loaded templates into storage with fallback system.
