@@ -3619,12 +3619,14 @@ function showTemplateManageDialog(instance) {
       flex-shrink: 0;
     `;
     toggleBtn.onmouseover = () => {
-      toggleBtn.style.background = isEnabled ? '#059669' : '#374151';
+      const currentState = templateManager.isTemplateEnabled(templateKey);
+      toggleBtn.style.background = currentState ? '#059669' : '#374151';
       toggleBtn.style.transform = 'translateY(-2px)';
       toggleBtn.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
     };
     toggleBtn.onmouseout = () => {
-      toggleBtn.style.background = isEnabled ? '#10b981' : '#4b5563';
+      const currentState = templateManager.isTemplateEnabled(templateKey);
+      toggleBtn.style.background = currentState ? '#10b981' : '#4b5563';
       toggleBtn.style.transform = '';
       toggleBtn.style.boxShadow = '';
     };
