@@ -1,4 +1,6 @@
-## Fork Notice
+<h1>Fork Notice</h1>
+
+<h2>Note: Ensure Blue Marble is uninstalled first before attempting to install Skirk Marble!</h2>
 
 This repository is a fork of [https://github.com/Seris0/Wplace-SkirkMarble/](https://github.com/Seris0/Wplace-SkirkMarble/).
 
