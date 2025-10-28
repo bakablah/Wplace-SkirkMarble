@@ -3,7 +3,7 @@
 This repository is a fork of [https://github.com/Seris0/Wplace-SkirkMarble/](https://github.com/Seris0/Wplace-SkirkMarble/).
 
 The install script for this fork is located at:
-https://github.com/Seris0/Wplace-SkirkMarble/raw/refs/heads/main/dist/SkirkMarble.user.js - click <a href="https://github.com/Seris0/Wplace-SkirkMarble/raw/refs/heads/main/dist/SkirkMarble.user.js">here</a> to install
+https://github.com/bakablah/Wplace-SkirkMarble/raw/refs/heads/main/dist/SkirkMarble.user.js - click <a href="https://github.com/bakablah/Wplace-SkirkMarble/raw/refs/heads/main/dist/SkirkMarble.user.js">here</a> to install
 
 <h1>Skirk Marble</h1>
 <a href="https://status.wplace.lol" target="_blank" rel="noopener noreferrer"><img alt="Wplace Status" src="https://status.wplace.lol/badge/_/status?labelColor=5f5f5f&color=&style=flat&label=Wplace%20Status"></a>
@@ -60,7 +60,7 @@ https://github.com/Seris0/Wplace-SkirkMarble/raw/refs/heads/main/dist/SkirkMarbl
         <br>
         <img alt="Enable 'Developer Mode' and 'Allow user scripts'" src="https://github.com/SwingTheVine/Wplace-BlueMarble/blob/main/docs/assets/ComputerChromeInstall3.png"></li>
         <li>Enable "Allow user scripts."</li>
-        <li><strong>One-click install:</strong> Click this link to Install Skirk Marble directly: <a href="https://github.com/Seris0/Wplace-SkirkMarble/raw/refs/heads/main/dist/SkirkMarble.user.js" target="_blank" rel="noopener noreferrer"><strong>Install Skirk Marble</strong></a>
+        <li><strong>One-click install:</strong> Click this link to Install Skirk Marble directly: <a href="https://github.com/bakablah/Wplace-SkirkMarble/raw/refs/heads/main/dist/SkirkMarble.user.js" target="_blank" rel="noopener noreferrer"><strong>Install Skirk Marble</strong></a>
         <br>
         TamperMonkey will automatically detect the userscript and prompt you to Install it.</li>
         <li>Refresh the <a href="https://wplace.live/" target="_blank" rel="noopener noreferrer">wplace.live</a> webpage.</li>
@@ -105,7 +105,7 @@ https://github.com/Seris0/Wplace-SkirkMarble/raw/refs/heads/main/dist/SkirkMarbl
         <li>Install the <a href="https://addons.mozilla.org/en-US/firefox/addon/tampermonkey/" target="_blank" rel="noopener noreferrer">TamperMonkey</a> plugin for Firefox.
         <br>
         <img alt="Click the 'Add to Firefox' button" src="https://github.com/SwingTheVine/Wplace-BlueMarble/blob/main/docs/assets/ComputerFirefoxInstall1.png"></li>
-        <li><strong>One-click install:</strong> Click this link to Install Skirk Marble directly: <a href="https://github.com/Seris0/Wplace-SkirkMarble/raw/refs/heads/main/dist/SkirkMarble.user.js" target="_blank" rel="noopener noreferrer"><strong>Install Skirk Marble</strong></a>
+        <li><strong>One-click install:</strong> Click this link to Install Skirk Marble directly: <a href="https://github.com/bakablah/Wplace-SkirkMarble/raw/refs/heads/main/dist/SkirkMarble.user.js" target="_blank" rel="noopener noreferrer"><strong>Install Skirk Marble</strong></a>
         <br>
         TamperMonkey will automatically detect the userscript and prompt you to install it.</li>
         <li>Refresh the <a href="https://wplace.live/" target="_blank" rel="noopener noreferrer">wplace.live</a> webpage.</li>
